@@ -1,0 +1,247 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+#include <conio.h>
+#include <ctype.h>
+
+void setup();
+void draw();
+void input();
+void updateGame();
+void logic();
+void clearScreen();
+void gotoxy(int x, int y);
+
+int gameover = 0;
+int x, y;
+int fruitx, fruity;
+int score;
+int height, width;
+char mode[10];
+int snakeLength = 1;
+int* snakeBody;
+int dx = 0;
+int dy = 0;
+int highScore;
+
+void setup() {
+    printf("Enter Map Size (Small, Medium, Large): ");
+    scanf("%s", mode);
+    for (int i = 0; i < 10; i++){
+    mode[i] = tolower(mode[i]);
+    }
+    if (strcmp(mode, "small") == 0) {
+        height = 10;
+        width = 20;
+    } else if (strcmp(mode, "medium") == 0) {
+        height = 20;
+        width = 40;
+    } else if (strcmp(mode, "large") == 0) {
+        height = 30;
+        width = 60;
+    }
+    x = height / 2;
+    y = width / 2;
+    score = 0;
+    snakeBody = malloc(sizeof(int) * 2 * (height * width));
+    snakeBody[0] = x;
+    snakeBody[1] = y;
+
+    srand(time(NULL));
+    do {
+        fruitx = rand() % (height - 2) + 1;
+        fruity = rand() % (width - 2) + 1;
+    } while (fruitx == x || fruity == y);
+}
+
+void draw() {
+    gotoxy(1, 1);
+
+    printf("\033[?25l"); // ASCII to hide the cursor
+
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            if (i == 0 || i == height - 1 || j == 0 || j == width - 1){
+                printf("#");
+            } else if (i == fruitx && j == fruity) {
+                printf("d");
+            } else if (i == x && j == y) {
+                    printf("O");
+            } else {
+                int isBody = 0;
+                for (int k = 1; k < snakeLength; k++) {
+                    if (i == snakeBody[2 * k] && j == snakeBody[2 * k + 1]) {
+                        printf("0");
+                        isBody = 1;
+                        break;
+                }
+            }
+            if (!isBody) {
+                printf(" ");
+                }
+            }
+        }
+        printf("\n");
+    }
+    if (strcmp(mode, "small") == 0) {
+    printf("Score: %d Press X to Quit\n", score);
+    }
+    if (strcmp(mode, "medium") == 0) {
+    printf("Score: %d                 Press X to Quit\n", score);
+    }
+    if (strcmp(mode, "large") == 0) {
+    printf("Score: %d                                     Press X to Quit\n", score);
+    }
+    fflush(stdout);
+
+
+}
+
+void input() {
+    if (kbhit()) {
+        switch (getch()) {
+            case 'w':
+                if (dx != 1) {
+                    dx = -1;
+                    dy = 0;
+                }
+                break;
+            case 's':
+                if (dx != -1) {
+                    dx = 1;
+                    dy = 0;
+                }
+                break;
+            case 'a':
+                if (dy != 1) {
+                    dx = 0;
+                    dy = -1;
+                }
+                break;
+            case 'd':
+                if (dy != -1) {
+                    dx = 0;
+                    dy = 1;
+                }
+                break;
+            case 'x':
+                gameover = 1;
+                break;
+        }
+    }
+}
+
+void updateGame() {
+    input();
+
+    // Move the head
+    x += dx;
+    y += dy;
+
+    // Move the body segments
+    for (int k = snakeLength - 1; k > 0; k--) {
+        snakeBody[2 * k] = snakeBody[2 * (k - 1)];
+        snakeBody[2 * k + 1] = snakeBody[2 * (k - 1) + 1];
+    }
+
+    // Update the position of the first body segment
+    snakeBody[0] = x;
+    snakeBody[1] = y;
+
+}
+int FruitBody (int fruitx, int fruity) {
+    for (int k = 0; k < snakeLength; k++) {
+    if (fruitx == snakeBody[2 * k] && fruity == snakeBody[2 * k + 1]) {
+        return 1;
+        }
+    }
+return 0;
+}
+
+void logic() {
+    if (x == 0 || x == height - 1 || y == 0 || y == width - 1) {
+        gameover = 1; // Snake hits the wall
+        return;
+    }
+    for (int k = 1; k < snakeLength; k++){
+    if (x == snakeBody[2 * k] && y == snakeBody[2 * k + 1]) {
+        gameover = 1;
+        return;
+        }
+    }
+
+    if (x == fruitx && y == fruity) {
+        score++;
+        snakeLength++;
+
+        do {
+            fruitx = rand() % (height - 2) + 1;
+            fruity = rand() % (width - 2) + 1;
+        } while (fruitx == x || fruity == y || FruitBody(fruitx, fruity));
+    }
+}
+
+void clearScreen() {
+    system("cls");
+}
+
+void gotoxy(int x, int y) {
+    printf("\033[%d;%dH", x, y);
+}
+
+void newHighscore () {
+    FILE * highscore = fopen ("highscore.txt", "r");
+    fscanf(highscore, "%d", &highScore);
+    fclose(highscore);
+    if (score > highScore) {
+    highscore = fopen ("highscore.txt", "w");
+    fprintf (highscore, "%d", score);
+    fclose(highscore);
+    highscore = fopen ("highscore.txt", "r");
+    fscanf(highscore, "%d", &highScore);
+    }
+
+
+    fclose(highscore);
+}
+
+int main() {
+    char playAgain;
+    do {
+    setup();
+    clearScreen();
+
+    while (!gameover) {
+        draw();
+        logic();
+        updateGame();
+        usleep(100000);
+    }
+
+    newHighscore();
+
+    printf("\033[?25h");
+
+    clearScreen();
+
+    printf("Game Over! Final Score: %d  High Score: %d\n", score, highScore);
+    printf("  Play Again? (y/n)   ");
+    scanf(" %c", &playAgain);
+    playAgain = tolower(playAgain);
+
+    clearScreen();
+
+    gameover = 0;
+    snakeLength = 1;
+    dx = 0;
+    dy = 0;
+
+    } while (playAgain == 'y');
+
+    free(snakeBody);
+
+    return 0;
+}
+ 
